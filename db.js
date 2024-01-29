@@ -1,8 +1,5 @@
 const mongoose = require("mongoose");
 
-// const connectionString =
-// "mongodb+srv://aachava2:Mongo10144@cluster0.obbojwn.mongodb.net/?retryWrites=true&w=majority";
-
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URL).then(() => {

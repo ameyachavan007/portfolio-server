@@ -1,5 +1,14 @@
 const express = require("express");
 const session = require("express-session");
+const redis = require("redis");
+require("dotenv").config();
+
+
+const redisClient = redis.createClient({
+  host: process.env.REDIS_HOSTNAME,
+  port: parseInt(process.env.REDIS_PORT),
+  password: process.env.REDIS_PASSWORD
+});
 const router = express.Router();
 const User = require("./user");
 
@@ -12,6 +21,28 @@ const sessionOptions = {
 };
 
 router.use(session(sessionOptions));
+
+// Redis cache middleware
+const cache = (req, res, next) => {
+  const { username } = req.params;
+  redisClient.get(username, (err, data) => {
+    if (err) {
+      console.error("Redis Error:", err);
+      next();
+    } else if (data !== null) {
+      console.log(`User data for ${username} retrieved from Redis cache`);
+      res.status(200).json({ user: JSON.parse(data) });
+    } else {
+      console.log(`User data for ${username} not found in Redis cache`);
+      next();
+    }
+  });
+};
+
+// Log Redis connection failures
+redisClient.on('error', (err) => {
+  console.error("Redis Connection Error:", err);
+});
 
 //Sign-up route
 router.post("/signup", async (req, res) => {
@@ -114,14 +145,16 @@ router.get("/api/check-session", (req, res) => {
   }
 });
 
-router.get("/:username", async (req, res) => {
+router.get("/:username", cache, async (req, res) => {
   try {
     const user = await User.findOne({ username: req.params.username });
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
+    redisClient.setex(req.params.username, 3600, JSON.stringify(user));
     res.status(200).json({ user: user });
   } catch (error) {
+    console.error("Database Error:", error);
     res.status(500).send("Internal Server Error");
   }
 });

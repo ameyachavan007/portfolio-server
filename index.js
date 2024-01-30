@@ -1,4 +1,5 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const routes = require("./routes");
@@ -10,6 +11,12 @@ require("dotenv").config();
 server.use(cors());
 server.use(bodyParser.urlencoded({ extended: true }));
 server.use(bodyParser.json());
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000, 
+  message: "Too many requests from this IP, please try again later",
+});
+server.use(limiter);
 server.use("/", routes);
 
 connectDB();

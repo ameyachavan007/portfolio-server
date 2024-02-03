@@ -31,7 +31,8 @@ const cache = (req, res, next) => {
       next();
     } else if (data !== null) {
       console.log(`User data for ${username} retrieved from Redis cache`);
-      res.status(200).json({ user: JSON.parse(data) });
+      req.userData = JSON.parse(data);
+      next();
     } else {
       console.log(`User data for ${username} not found in Redis cache`);
       next();
@@ -90,6 +91,7 @@ router.post("/", async (req, res) => {
 
 // career-details route
 router.post("/career-details", async (req, res) => {
+  
   const {
     email,
     password,
@@ -124,12 +126,16 @@ router.post("/career-details", async (req, res) => {
       linkedin: linkedin,
       tagLine: tagLine,
     };
+    console.log("===career-details===",updateData);
     const user = await User.findOneAndUpdate(
       { username: username },
       updateData,
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
-    res.status(200).json({ user: user });
+    // Store the updated user data in Redis cache
+    redisClient.setex(username, 3600, JSON.stringify(user));
+
+    res.status(200).json({ updatedUser: user });
   } catch (error) {
     res.status(500).json({ message: "Server error" });
   }
@@ -147,15 +153,108 @@ router.get("/api/check-session", (req, res) => {
 
 router.get("/:username", cache, async (req, res) => {
   try {
-    const user = await User.findOne({ username: req.params.username });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
+    const { username } = req.params;
+    if (req.userData) {
+      res.status(200).json({ user: req.userData });
+    } else {
+      const user = await User.findOne({ username: username });
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      redisClient.setex(req.params.username, 3600, JSON.stringify(user));
+      res.status(200).json({ user: user });
     }
-    redisClient.setex(req.params.username, 3600, JSON.stringify(user));
-    res.status(200).json({ user: user });
   } catch (error) {
     console.error("Database Error:", error);
     res.status(500).send("Internal Server Error");
   }
 });
+
+router.get("/:username/about", cache, async (req, res) => {
+  try {
+    if(req.userData && req.userData.about ) {
+      res.status(200).json({ about: req.userData.about });
+    } else {
+      res.status(404).json({ error: "About data not found for the user" });
+    }
+  } catch (error) {
+    console.error("Error retrieving about data:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+})
+
+router.get("/:username/projects", cache, async(req, res) => {
+  try {
+    if(req.userData && req.userData.projects) {
+      res.status(200).json({ projects: req.userData.projects });
+    } else {
+      res.status(404).json({ error: "Projects data not found for the user" });
+    } 
+  } catch (error) {
+    console.error("Error retrieving experiences data:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+router.get("/:username/experiences", cache, async(req, res) => {
+  try {
+    if(req.userData && req.userData.experiences) {
+      res.status(200).json({ experiences: req.userData.experiences });
+    } else {
+      res.status(404).json({ error: "Experiences data not found for the user" });
+    } 
+  } catch (error) {
+    console.error("Error retrieving experiences data:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+router.get("/:username/career-details", cache, async (req, res) => {
+  try {
+    let user;
+    if (req.userData) {
+      let userdata = req.userData;
+      user = {
+        firstName: userdata.firstName,
+        lastName: userdata.lastName,
+        about: userdata.about,
+        experiences: userdata.experiences,
+        projects: userdata.projects,
+        github: userdata.github,
+        twitter: userdata.twitter,
+        linkedin: userdata.linkedin,
+        instagram: userdata.instagram,
+        tagLine: userdata.tagLine,
+      }
+      res.status(200).json({user: user});
+    } else {
+      res.status(404).json({ error: "Data not found for the user" });
+    }
+  } catch (error) {
+    console.error("Error retrieving user data:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+})
+
+router.get("/:username/social-links", cache, async (req, res) => {
+  try {
+    let socialLinks;
+    if (req.userData) {
+      let userdata = req.userData;
+      socialLinks = {
+        github: userdata.github,
+        twitter: userdata.twitter,
+        linkedin: userdata.linkedin,
+        instagram: userdata.instagram,
+      }
+      res.status(200).json({socialLinks: socialLinks});
+    } else {
+      res.status(404).json({ error: "Links Data not found for the user" });
+    }
+  } catch (error) {
+    console.error("Error retrieving links data:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+})
+
 module.exports = router;

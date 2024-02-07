@@ -68,6 +68,23 @@ router.post("/signup", async (req, res) => {
   }
 });
 
+router.post("/forgot-password", async (req, res) => {
+  const {email, username, password} = req.body;
+  try {
+    let user = await User.findOne({ username, email });
+    if (user) {
+      user.password = password;
+      await user.save();
+      res.status(200).json({ message: "Password updated successfully" });
+    } else {
+      res.status(404).json({ message: "User not found" });
+    }
+  }catch (error) {
+    console.error("Error updating password:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+})
+
 //Login route
 router.post("/", async (req, res) => {
   const { email, hashedPassword } = req.body;
@@ -133,7 +150,7 @@ router.post("/career-details", async (req, res) => {
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
     // Store the updated user data in Redis cache
-    redisClient.setex(username, 3600, JSON.stringify(user));
+    redisClient.setex(username, 300, JSON.stringify(user));
 
     res.status(200).json({ updatedUser: user });
   } catch (error) {
@@ -161,7 +178,7 @@ router.get("/:username", cache, async (req, res) => {
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
-      redisClient.setex(req.params.username, 3600, JSON.stringify(user));
+      redisClient.setex(req.params.username, 300, JSON.stringify(user));
       res.status(200).json({ user: user });
     }
   } catch (error) {

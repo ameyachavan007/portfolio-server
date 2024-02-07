@@ -189,37 +189,61 @@ router.get("/:username", cache, async (req, res) => {
 
 router.get("/:username/about", cache, async (req, res) => {
   try {
-    if(req.userData && req.userData.about ) {
+    if (req.userData && req.userData.about) {
       res.status(200).json({ about: req.userData.about });
     } else {
-      res.status(404).json({ error: "About data not found for the user" });
+      // Implement database call if Redis fails after 3 retries
+      console.log("Redis cache for 'about' data not available, performing database call...");
+      const user = await User.findOne({ username: req.params.username });
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      // Update Redis cache with fetched data
+      redisClient.setex(req.params.username, 300, JSON.stringify(user));
+      res.status(200).json({ about: user.about });
     }
   } catch (error) {
     console.error("Error retrieving about data:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
-})
+});
 
-router.get("/:username/projects", cache, async(req, res) => {
+router.get("/:username/projects", cache, async (req, res) => {
   try {
-    if(req.userData && req.userData.projects) {
+    if (req.userData && req.userData.projects) {
       res.status(200).json({ projects: req.userData.projects });
     } else {
-      res.status(404).json({ error: "Projects data not found for the user" });
-    } 
+      // Implement database call if Redis fails after 3 retries
+      console.log("Redis cache for 'projects' data not available, performing database call...");
+      const user = await User.findOne({ username: req.params.username });
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      // Update Redis cache with fetched data
+      redisClient.setex(req.params.username, 300, JSON.stringify(user));
+      res.status(200).json({ projects: user.projects });
+    }
   } catch (error) {
-    console.error("Error retrieving experiences data:", error);
+    console.error("Error retrieving projects data:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-router.get("/:username/experiences", cache, async(req, res) => {
+router.get("/:username/experiences", cache, async (req, res) => {
   try {
-    if(req.userData && req.userData.experiences) {
+    if (req.userData && req.userData.experiences) {
       res.status(200).json({ experiences: req.userData.experiences });
     } else {
-      res.status(404).json({ error: "Experiences data not found for the user" });
-    } 
+      // Implement database call if Redis fails after 3 retries
+      console.log("Redis cache for 'experiences' data not available, performing database call...");
+      const user = await User.findOne({ username: req.params.username });
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      // Update Redis cache with fetched data
+      redisClient.setex(req.params.username, 300, JSON.stringify(user));
+      res.status(200).json({ experiences: user.experiences });
+    }
   } catch (error) {
     console.error("Error retrieving experiences data:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -257,21 +281,36 @@ router.get("/:username/social-links", cache, async (req, res) => {
   try {
     let socialLinks;
     if (req.userData) {
-      let userdata = req.userData;
       socialLinks = {
-        github: userdata.github,
-        twitter: userdata.twitter,
-        linkedin: userdata.linkedin,
-        instagram: userdata.instagram,
-      }
-      res.status(200).json({socialLinks: socialLinks});
+        github: req.userData.github,
+        twitter: req.userData.twitter,
+        linkedin: req.userData.linkedin,
+        instagram: req.userData.instagram,
+      };
+      res.status(200).json({ socialLinks: socialLinks });
     } else {
-      res.status(404).json({ error: "Links Data not found for the user" });
+      // Implement database call if Redis fails after 3 retries
+      console.log("Redis cache for 'social-links' data not available, performing database call...");
+      const user = await User.findOne({ username: req.params.username });
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      // Update Redis cache with fetched data
+      redisClient.setex(req.params.username, 300, JSON.stringify(user));
+      
+      socialLinks = {
+        github: user.github,
+        twitter: user.twitter,
+        linkedin: user.linkedin,
+        instagram: user.instagram,
+      };
+      res.status(200).json({ socialLinks: socialLinks });
     }
   } catch (error) {
-    console.error("Error retrieving links data:", error);
+    console.error("Error retrieving social-links data:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
-})
+});
+
 
 module.exports = router;
